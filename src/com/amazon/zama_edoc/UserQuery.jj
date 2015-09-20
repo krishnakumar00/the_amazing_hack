@@ -1,0 +1,102 @@
+
+options {
+  STATIC=false;
+}
+
+PARSER_BEGIN(UserQuery)
+
+package com.amazon.zama_edoc;
+
+import java.util.HashMap;
+import java.io.ByteArrayInputStream;
+
+public class UserQuery {
+  public static String queryString = "";
+  public static HashMap obj = new HashMap();
+  public String userStr = ""; 
+  public static void main(String args[]) {
+    try {
+      String attr = new UserQuery(System.in).Input();
+      System.out.println("QUERY : select * from table where " + attr + queryString + ";");
+    } catch (ParseException e) {
+      System.out.println("[error] : "+e.getMessage());
+      e.printStackTrace();
+    }
+  }
+
+  public UserQuery (String inptStr) throws Exception  {
+    String attr = new UserQuery(new ByteArrayInputStream(inptStr.getBytes())).Input();
+    userStr = attr + queryString;  }
+
+  public String getQuery ()  {
+    return userStr;  }
+}
+
+PARSER_END(UserQuery)
+
+TOKEN:
+{
+  <JOIN: "and" | "or">
+|
+  <OPERATOR: "equals" | "not equals" | "higher than" | "lower than">
+| 
+  <SPACE: " ">
+|
+  <NAME: (["a"-"z","A"-"Z","0"-"9","_"])+>
+|
+  <VALUE: "\""(["a"-"z","A"-"Z","0"-"9"," "])+"\"">
+}
+
+String Input():
+{
+  String attr = "";
+}
+{
+  attr=Attribute() (Join())* ("\n"|"\r")*
+  {
+    return attr;
+  }
+}
+
+void Join():
+{
+    Token join = null;
+    String attr = "";
+    obj = new HashMap();
+}
+{
+  (<SPACE> join=<JOIN> <SPACE> attr=Attribute())
+  {
+    queryString += " " + join.toString() + attr;
+  }
+
+}
+
+String Attribute():
+{
+  Token name = null;
+  Token value = null;
+  Token operator = null;
+}
+{
+  (name=<NAME><SPACE>operator=<OPERATOR><SPACE>value=<VALUE>)
+  {
+    String attrName = name.toString();
+    String attrValue = value.toString();
+    String oprValue = operator.toString();
+
+    attrValue = attrName.equals("item_id") || attrName.equals("list_price") ? attrValue.replace("\"", "") : attrValue;  
+
+    //replace all operators
+
+    oprValue = oprValue.equals("equals") ? "=" : oprValue;
+    oprValue = oprValue.equals("not equals") ? "!=" : oprValue;
+    oprValue = oprValue.equals("higher than") ? ">=" : oprValue;
+    oprValue = oprValue.equals("lower than") ? "<=" : oprValue;
+
+	attrValue = attrValue.replace("'", "\\'");
+    attrValue = attrValue.replace("\"", "''");
+    
+    return " "+attrName+ oprValue +attrValue+"";
+  }
+}
